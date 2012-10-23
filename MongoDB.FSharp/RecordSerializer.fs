@@ -29,6 +29,8 @@ type RecordSerializer(classMap : BsonClassMap) =
         item :: state
       ) [] |> Seq.toArray |> Array.rev
 
+    reader.GetCurrentBsonType() |> ignore
+
     reader.ReadStartDocument()
 
     let items = readItems reader (names nominalType) options

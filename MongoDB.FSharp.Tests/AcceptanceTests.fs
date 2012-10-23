@@ -4,14 +4,21 @@ open Xunit
 open Swensen.Unquote
 open Swensen.Unquote.Assertions
 open MongoDB.Bson
+open MongoDB.Bson.Serialization
 open MongoDB.Driver
+open MongoDB.Driver.Linq
 open MongoDB.FSharp
+open System.Linq
 
 open TestUtils
 
-type ObjectWithList() =
-  member val Id   : BsonObjectId  = BsonObjectId.GenerateNewId()  with get, set
-  member val List : string list   = []                            with get, set
+type SimpleSwitch = Off
+                  | On
+
+type DimmerSwitch = Off
+                  | Dim of int
+                  | DimMarquee of int * string
+                  | On
 
 type RecordWithList =
   { Id   : BsonObjectId
@@ -19,12 +26,23 @@ type RecordWithList =
 
 type RecordType =
   { Id : BsonObjectId
-    Name : string }
+    Name : string
+    Int : int }
 
-type DimmerSwitch = Off
-                  | Dim of int
-                  | DimMarquee of int * string
-                  | On
+type RecordWithSwitchList =
+  { Id : BsonObjectId
+    Switches : SimpleSwitch list }
+
+type IdLessRecordWithSwitchList = { Switches : SimpleSwitch list; Switches2 : SimpleSwitch list }
+
+type ObjectType() =
+  member val Id   : BsonObjectId  = BsonObjectId.GenerateNewId()  with get, set
+  member val Name : string        = ""                            with get, set
+  member val Int  : int           = 0                             with get, set
+
+type ObjectWithList() =
+  member val Id   : BsonObjectId  = BsonObjectId.GenerateNewId()  with get, set
+  member val List : string list   = []                            with get, set
 
 type ObjectWithOptions() =
   member val Id : BsonObjectId = BsonObjectId.GenerateNewId() with get, set
@@ -42,8 +60,7 @@ type ObjectWithDimmers() =
 
 type ``When serializing lists``() = 
   let db = MongoDatabase.Create "mongodb://localhost/test"
-  do
-    Serializers.Register()
+  do Serializers.Register()
 
   interface System.IDisposable with
     member this.Dispose() =
@@ -110,7 +127,7 @@ type ``When serializing lists``() =
   [<Fact>]
   member this.``It can serialize records``() =
     let collection = db.GetCollection<RecordType> "objects"
-    let obj = { Id = BsonObjectId.GenerateNewId(); Name = "test"  }
+    let obj = { Id = BsonObjectId.GenerateNewId(); Name = "test"; Int = 1 }
     collection.Insert obj |> ignore
 
     let genCollection = db.GetCollection "objects"
@@ -122,7 +139,7 @@ type ``When serializing lists``() =
   [<Fact>]
   member this.``It can deserialize records``() =
     let id = BsonObjectId.GenerateNewId()
-    let document = BsonDocument([BsonElement("_id", id); BsonElement("Name", BsonString("value"))])
+    let document = BsonDocument([BsonElement("_id", id); BsonElement("Name", BsonString("value")); BsonElement("Int", BsonInt32(1))])
     let collection = db.GetCollection "objects"
     collection.Save(document) |> ignore
 
@@ -130,6 +147,30 @@ type ``When serializing lists``() =
     let fromDb = collection.FindOneById(id)
     Assert.NotNull(fromDb)
     Assert.Equal<string>("value", fromDb.Name)
+
+
+  [<Fact>]
+  member this.``It can deserialize select projections on objects``() =
+    let collection = db.GetCollection<ObjectType> "objects"
+    collection.Save(ObjectType( Id = BsonObjectId.GenerateNewId(), Name = "test", Int = 1 )) |> ignore
+    collection.Save(ObjectType( Id = BsonObjectId.GenerateNewId(), Name = "test2", Int = 2 )) |> ignore
+
+    let collection = db.GetCollection<ObjectType>("objects")
+    let fromDb = collection.AsQueryable().Select(fun (o : ObjectType) -> o.Name) |> Seq.toList |> List.head
+    Assert.NotNull(fromDb)
+    Assert.Equal<string>("test", fromDb)
+
+
+  [<Fact>]
+  member this.``It can deserialize select projections on records``() =
+    let collection = db.GetCollection<RecordType> "objects"
+    collection.Save({ Id = BsonObjectId.GenerateNewId(); Name = "test"; Int = 1 }) |> ignore
+    collection.Save({ Id = BsonObjectId.GenerateNewId(); Name = "test2"; Int = 2 }) |> ignore
+
+    let collection = db.GetCollection<RecordType>("objects")
+    let fromDb = collection.AsQueryable().Select(fun r -> r.Name) |> Seq.toList |> List.head
+    Assert.NotNull(fromDb)
+    Assert.Equal<string>("test", fromDb)
 
 
   [<Fact>]
@@ -169,6 +210,38 @@ type ``When serializing lists``() =
     Assert.Equal(2, array.Count)
     Assert.Equal(42, array.[0].AsInt32)
     Assert.Equal<string>("loser", array.[1].AsString)
+
+
+  [<Fact>]
+  member this.``It can serialize list of simple switches to list of strings``() =
+    let collection = db.GetCollection<RecordWithSwitchList> "objects"
+    let id = BsonObjectId.GenerateNewId()
+    collection.Save { Id = id; Switches = [ SimpleSwitch.On; SimpleSwitch.Off ] } |> ignore
+
+    let collection = db.GetCollection "objects"
+    let fromDb = collection.FindOneById(id)
+    let switches = fromDb.GetElement("Switches")
+    Assert.NotNull(switches);
+    Assert.Equal<string>("On", switches.Value.AsBsonArray.[0].AsString)
+
+
+  [<Fact>]
+  member this.``It can serialize to json record without id and a list of simple switches as list of strings``() =
+    let json = BsonExtensionMethods.ToJson { Switches = [ SimpleSwitch.On; SimpleSwitch.Off ]; Switches2 = [ SimpleSwitch.Off ] }
+    Assert.Equal<string>(@"{ ""Switches"" : [""On"", ""Off""], ""Switches2"" : [""Off""] }", json)
+
+
+  [<Fact>]
+  member this.``It can serialize to json list of simple switches as list of strings``() =
+    let json = BsonExtensionMethods.ToJson([SimpleSwitch.On; SimpleSwitch.Off])
+    Assert.Equal<string>(@"[""On"", ""Off""]", json)
+
+    
+  [<Fact>]
+  member this.``It can deserialize from json list of strings as list of simple switches``() =
+    let json = BsonExtensionMethods.ToJson([SimpleSwitch.On; SimpleSwitch.Off])
+    let list = BsonSerializer.Deserialize<list<SimpleSwitch>>(json)
+    Assert.Equal<SimpleSwitch>(SimpleSwitch.On, list.Head)
 
 
   [<Fact>]
