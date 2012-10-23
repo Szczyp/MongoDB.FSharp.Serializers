@@ -60,7 +60,7 @@ type ObjectWithDimmers() =
 
 type ``When serializing lists``() = 
   let db = MongoDatabase.Create "mongodb://localhost/test"
-  do Serializers.Register()
+  do FSharpSerializers.Register()
 
   interface System.IDisposable with
     member this.Dispose() =

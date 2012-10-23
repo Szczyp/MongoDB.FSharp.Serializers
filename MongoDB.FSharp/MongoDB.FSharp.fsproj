@@ -55,7 +55,7 @@
     <Compile Include="RecordSerializer.fs" />
     <Compile Include="UnionSerializer.fs" />
     <Compile Include="FSharpSerializationProvider.fs" />
-    <Compile Include="Serializers.fs" />
+    <Compile Include="FSharpSerializers.fs" />
     <None Include="Script.fsx" />
     <None Include="packages.config" />
   </ItemGroup>

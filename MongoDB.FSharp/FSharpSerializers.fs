@@ -3,10 +3,9 @@
 open MongoDB.Bson.Serialization
 
 
-module Serializers =
+module FSharpSerializers =
   let mutable isRegistered = false
 
-  /// Registers all F# serializers
   let Register() =
     if not isRegistered then
       BsonSerializer.RegisterSerializationProvider(FsharpSerializationProvider())
