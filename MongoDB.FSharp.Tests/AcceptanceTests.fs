@@ -33,7 +33,7 @@ type RecordWithSwitchList =
   { Id : BsonObjectId
     Switches : SimpleSwitch list }
 
-type IdLessRecordWithSwitchList = { Switches : SimpleSwitch list; Switches2 : SimpleSwitch list }
+type RecordWithoutId = { Name : string }
 
 type ObjectType() =
   member val Id   : BsonObjectId  = BsonObjectId.GenerateNewId()  with get, set
@@ -168,7 +168,7 @@ type ``When serializing lists``() =
     collection.Save({ Id = BsonObjectId.GenerateNewId(); Name = "test2"; Int = 2 }) |> ignore
 
     let collection = db.GetCollection<RecordType>("objects")
-    let fromDb = collection.AsQueryable().Select(fun r -> r.Name) |> Seq.toList |> List.head
+    let fromDb = collection.AsQueryable().Select(fun (r : RecordType) -> r.Name) |> Seq.toList |> List.head
     Assert.NotNull(fromDb)
     Assert.Equal<string>("test", fromDb)
 
@@ -226,9 +226,18 @@ type ``When serializing lists``() =
 
 
   [<Fact>]
-  member this.``It can serialize to json record without id and a list of simple switches as list of strings``() =
-    let json = BsonExtensionMethods.ToJson { Switches = [ SimpleSwitch.On; SimpleSwitch.Off ]; Switches2 = [ SimpleSwitch.Off ] }
-    Assert.Equal<string>(@"{ ""Switches"" : [""On"", ""Off""], ""Switches2"" : [""Off""] }", json)
+  member this.``It can serialize and deserialize record without id``() =
+    let collection = db.GetCollection<RecordWithoutId> "objects"
+    collection.Insert { Name = "test" } |> ignore
+
+    let record = collection.AsQueryable().First()
+    Assert.Equal<string>("test", record.Name)
+
+
+  [<Fact>]
+  member this.``It can serialize to json record without id``() =
+    let json = BsonExtensionMethods.ToJson { Name = "test" }
+    Assert.Equal<string>(@"{ ""Name"" : ""test"" }", json)
 
 
   [<Fact>]

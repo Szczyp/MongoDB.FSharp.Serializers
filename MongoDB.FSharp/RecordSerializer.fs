@@ -29,11 +29,17 @@ type RecordSerializer(classMap : BsonClassMap) =
         item :: state
       ) [] |> Seq.toArray |> Array.rev
 
+    let names = names nominalType
+
     reader.GetCurrentBsonType() |> ignore
 
     reader.ReadStartDocument()
 
-    let items = readItems reader (names nominalType) options
+    if (Array.tryFind (fun n -> n = "Id") names) = None then
+      reader.ReadName() |> ignore
+      reader.SkipValue()
+
+    let items = readItems reader names options
 
     reader.ReadEndDocument()
 
