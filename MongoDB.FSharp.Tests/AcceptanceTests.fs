@@ -241,6 +241,14 @@ type ``When serializing lists``() =
 
 
   [<Fact>]
+  member this.``It can serialize to json and deserialize record without id``() =
+    let record = { Name = "test" }
+    let json = BsonExtensionMethods.ToJson record
+    let fromJson = BsonSerializer.Deserialize<RecordWithoutId>(json)
+    Assert.Equal<string>(record.Name, fromJson.Name)
+
+
+  [<Fact>]
   member this.``It can serialize to json list of simple switches as list of strings``() =
     let json = BsonExtensionMethods.ToJson([SimpleSwitch.On; SimpleSwitch.Off])
     Assert.Equal<string>(@"[""On"", ""Off""]", json)

@@ -22,7 +22,7 @@ type RecordSerializer(classMap : BsonClassMap) =
 
     let readItems (reader : BsonReader) properties options =
       properties |> Seq.fold(fun state n ->
-        reader.ReadName() |> ignore
+        if reader.State <> BsonReaderState.Value then reader.ReadName() |> ignore
         let memberMap = classMap.GetMemberMap(n)
         let serializer = memberMap.GetSerializer(memberMap.MemberType)
         let item = serializer.Deserialize(reader, memberMap.MemberType, memberMap.SerializationOptions)
@@ -35,9 +35,8 @@ type RecordSerializer(classMap : BsonClassMap) =
 
     reader.ReadStartDocument()
 
-    if (Array.tryFind (fun n -> n = "Id") names) = None then
-      reader.ReadName() |> ignore
-      reader.SkipValue()
+    if (Array.tryFind (fun n -> n = "Id") names) = None && reader.ReadName() = "_id"
+    then reader.SkipValue()
 
     let items = readItems reader names options
 
