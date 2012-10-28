@@ -52,6 +52,7 @@
     <Compile Include="Environment.fs" />
     <Compile Include="ListSerializationOptions.fs" />
     <Compile Include="ListSerializer.fs" />
+    <Compile Include="MapSerializer.fs" />
     <Compile Include="RecordSerializer.fs" />
     <Compile Include="UnionSerializer.fs" />
     <Compile Include="FSharpSerializationProvider.fs" />

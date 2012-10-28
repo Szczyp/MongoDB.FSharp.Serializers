@@ -29,4 +29,8 @@ type FsharpSerializationProvider() =
 
       | Some SourceConstructFlags.SumType   -> sumTypeCase()
       | Some SourceConstructFlags.UnionCase -> UnionCaseSerializer() :> IBsonSerializer
+      | Some SourceConstructFlags.ObjectType  -> if typ.IsGenericType && typ.GetGenericTypeDefinition() = typedefof<Map<_, _>>
+                                                 then typedefof<MapSerializer<_, _>>.MakeGenericType(typ.GetGenericArguments())
+                                                      |> Activator.CreateInstance :?> IBsonSerializer
+                                                 else null
       | _                                   -> null

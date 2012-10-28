@@ -10,4 +10,5 @@ module FSharpSerializers =
     if not isRegistered then
       BsonSerializer.RegisterSerializationProvider(FsharpSerializationProvider())
       BsonSerializer.RegisterGenericSerializerDefinition(typeof<list<_>>, typeof<ListSerializer<_>>)
+      BsonSerializer.RegisterGenericSerializerDefinition(typeof<Map<_, _>>, typeof<MapSerializer<_, _>>)
       isRegistered <- true

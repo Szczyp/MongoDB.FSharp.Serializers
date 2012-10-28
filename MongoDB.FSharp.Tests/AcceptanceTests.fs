@@ -35,6 +35,10 @@ type RecordWithSwitchList =
 
 type RecordWithoutId = { Name : string }
 
+type RecordWithMap = 
+  { Name : string
+    Map  : Map<SimpleSwitch, float> }
+
 type ObjectType() =
   member val Id   : BsonObjectId  = BsonObjectId.GenerateNewId()  with get, set
   member val Name : string        = ""                            with get, set
@@ -228,7 +232,7 @@ type ``When serializing lists``() =
   [<Fact>]
   member this.``It can serialize and deserialize record without id``() =
     let collection = db.GetCollection<RecordWithoutId> "objects"
-    collection.Insert { Name = "test" } |> ignore
+    collection.Insert { RecordWithoutId.Name = "test" } |> ignore
 
     let record = collection.AsQueryable().First()
     Assert.Equal<string>("test", record.Name)
@@ -236,13 +240,13 @@ type ``When serializing lists``() =
 
   [<Fact>]
   member this.``It can serialize to json record without id``() =
-    let json = BsonExtensionMethods.ToJson { Name = "test" }
+    let json = BsonExtensionMethods.ToJson { RecordWithoutId.Name = "test" }
     Assert.Equal<string>(@"{ ""Name"" : ""test"" }", json)
 
 
   [<Fact>]
   member this.``It can serialize to json and deserialize record without id``() =
-    let record = { Name = "test" }
+    let record = { RecordWithoutId.Name = "test" }
     let json = BsonExtensionMethods.ToJson record
     let fromJson = BsonSerializer.Deserialize<RecordWithoutId>(json)
     Assert.Equal<string>(record.Name, fromJson.Name)
@@ -259,6 +263,17 @@ type ``When serializing lists``() =
     let json = BsonExtensionMethods.ToJson([SimpleSwitch.On; SimpleSwitch.Off])
     let list = BsonSerializer.Deserialize<list<SimpleSwitch>>(json)
     Assert.Equal<SimpleSwitch>(SimpleSwitch.On, list.Head)
+
+
+  [<Fact>]
+  member this.``It can serialize and deserialize record with map``() =
+    let test = { Name = "test"; Map = Map.ofList [ (SimpleSwitch.On, 1.); (SimpleSwitch.Off, 2.) ] }
+    let collection = db.GetCollection<RecordWithMap>("objects")
+    let json = test.ToJson(typeof<RecordWithMap>)
+    let fromJson = BsonSerializer.Deserialize<RecordWithMap>(json)
+    collection.Insert test |> ignore
+    let fromDb = collection.AsQueryable().First()
+    Assert.Equal(fromJson.Map.[SimpleSwitch.On], fromDb.Map.[SimpleSwitch.On])
 
 
   [<Fact>]
