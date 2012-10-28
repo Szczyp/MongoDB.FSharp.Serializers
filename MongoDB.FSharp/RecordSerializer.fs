@@ -3,6 +3,7 @@
 open System
 open System.Reflection
 open Microsoft.FSharp.Reflection
+open MongoDB.Bson
 open MongoDB.Bson.IO
 open MongoDB.Bson.Serialization
 
@@ -20,25 +21,26 @@ type RecordSerializer(classMap : BsonClassMap) =
   override this.Deserialize(reader : BsonReader, nominalType : Type, actualType : Type, options : IBsonSerializationOptions) =
     let names t = FSharpType.GetRecordFields(t) |> Array.map (fun (i : PropertyInfo) -> i.Name) 
 
-    let readItems (reader : BsonReader) properties options =
-      properties |> Seq.fold(fun state n ->
-        if reader.State <> BsonReaderState.Value then reader.ReadName() |> ignore
-        let memberMap = classMap.GetMemberMap(n)
-        let serializer = memberMap.GetSerializer(memberMap.MemberType)
-        let item = serializer.Deserialize(reader, memberMap.MemberType, memberMap.SerializationOptions)
-        item :: state
-      ) [] |> Seq.toArray |> Array.rev
+    let readItems (reader : BsonReader) names options =
+      let items = Array.init (Array.length names) (fun i -> null)
 
-    let names = names nominalType
+      while reader.ReadBsonType() <> BsonType.EndOfDocument do
+        let name = reader.ReadName()
+        let memberMap = classMap.GetMemberMapForElement name
+        match memberMap with
+        | null -> reader.SkipValue()
+        | map  -> match Array.tryFindIndex (fun a -> a = map.MemberName) names with
+                  | None        -> reader.SkipValue()
+                  | Some(index) ->
+                    let serializer = memberMap.GetSerializer(memberMap.MemberType)
+                    items.[index] <- serializer.Deserialize(reader, memberMap.MemberType, memberMap.SerializationOptions)
+      items
 
     reader.GetCurrentBsonType() |> ignore
 
     reader.ReadStartDocument()
 
-    if (Array.tryFind (fun n -> n = "Id") names) = None && reader.ReadName() = "_id"
-    then reader.SkipValue()
-
-    let items = readItems reader names options
+    let items = readItems reader (names nominalType) options
 
     reader.ReadEndDocument()
 
