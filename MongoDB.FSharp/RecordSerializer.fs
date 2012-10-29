@@ -40,11 +40,11 @@ type RecordSerializer(classMap : BsonClassMap) =
 
     reader.ReadStartDocument()
 
-    let items = readItems reader (names nominalType) options
+    let items = readItems reader (names actualType) options
 
     reader.ReadEndDocument()
 
-    FSharpValue.MakeRecord(nominalType, items)
+    FSharpValue.MakeRecord(actualType, items)
 
 
   interface IBsonIdProvider with

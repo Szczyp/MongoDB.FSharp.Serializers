@@ -4,6 +4,7 @@ open Xunit
 open Swensen.Unquote
 open Swensen.Unquote.Assertions
 open MongoDB.Bson
+open MongoDB.Bson.IO
 open MongoDB.Bson.Serialization
 open MongoDB.Driver
 open MongoDB.Driver.Linq
@@ -38,6 +39,13 @@ type RecordWithoutId = { Name : string }
 type RecordWithMap = 
   { Name : string
     Map  : Map<SimpleSwitch, float> }
+
+type RecordWithOptions =
+  { Name : string option
+    Number : int option }
+
+type RecordWithOptionsOfUnion =
+  { Switch : SimpleSwitch option }
 
 type ObjectType() =
   member val Id   : BsonObjectId  = BsonObjectId.GenerateNewId()  with get, set
@@ -190,25 +198,6 @@ type ``When serializing lists``() =
 
 
   [<Fact>]
-  member this.``It can serialize option types``() =
-    let collection = db.GetCollection<ObjectWithOptions> "objects"
-    let obj = ObjectWithOptions()
-    obj.Age <- Some 42
-    collection.Save obj |> ignore
-
-    let collection = db.GetCollection "objects"
-    let fromDb = collection.FindOneById(obj.Id)
-    let age = fromDb.GetElement("Age")
-    Assert.NotNull(age);
-    Assert.Equal<string>("Some", age.Value.AsBsonDocument.GetElement("_t").Value.AsString)
-    let value = age.Value.AsBsonDocument.GetElement("_v").Value
-    Assert.True(value.IsBsonArray)
-    let array = value.AsBsonArray
-    Assert.Equal(1, array.Count)
-    Assert.Equal(42, array.[0].AsInt32)
-
-
-  [<Fact>]
   member this.``It can serialize DimmerSwitch types``() =
     let collection = db.GetCollection<ObjectWithOptions> "objects"
     let obj = ObjectWithDimmer()
@@ -289,19 +278,43 @@ type ``When serializing lists``() =
 
 
   [<Fact>]
-  member this.``It can deserialize option types``() =
-    let id = BsonObjectId.GenerateNewId()
-    let arrayPart = BsonArray([ BsonInt32(42) ])
-    let structure = BsonDocument(BsonElement("_t", BsonString("Some")), BsonElement("_v", arrayPart))
-    let document = BsonDocument(BsonElement("_id", id), BsonElement("Age", structure))
-    let collection = db.GetCollection "objects"
-    collection.Save(document) |> ignore
+  member this.``It can serialize and deserialize option types``() =
+    let collection = db.GetCollection<RecordWithOptions> "objects"
+    collection.RemoveAll() |> ignore
+    collection.Insert({ Name = None; Number = Some 1 }) |> ignore
 
-    let collection = db.GetCollection<ObjectWithOptions> "objects"
-    let fromDb = collection.FindOneById id
-    match fromDb.Age with
-    | Some 42 -> ()
-    | _ -> fail "expected Some 42 but got something else"
+    let fromDb = collection.AsQueryable<RecordWithOptions>().First()
+    match fromDb.Name with
+    | None  -> ()
+    | _     -> fail "expected None but got something else"
+    match fromDb.Number with
+    | Some 1  -> ()
+    | _       -> fail "expected Some 1 but got something else"
+
+
+  [<Fact>]
+  member this.``It can serialize to json and deserialize option types``() =
+    let json = BsonExtensionMethods.ToJson({ Name = None; Number = Some 1 }, JsonWriterSettings(OutputMode = JsonOutputMode.Strict))
+
+    let fromJson = BsonSerializer.Deserialize json
+    match fromJson.Name with
+    | None  -> ()
+    | _     -> fail "expected None but got something else"
+    match fromJson.Number with
+    | Some 1  -> ()
+    | _       -> fail "expected Some 1 but got something else"
+
+
+  [<Fact>]
+  member this.``It can serialize and deserialize option types of union``() =
+    let collection = db.GetCollection<RecordWithOptionsOfUnion> "objects"
+    collection.RemoveAll() |> ignore
+    collection.Insert({ Switch = Some SimpleSwitch.Off }) |> ignore
+
+    let fromDb = collection.AsQueryable<RecordWithOptionsOfUnion>().First()
+    match fromDb.Switch with
+    | Some SimpleSwitch.Off  -> ()
+    | _                      -> fail "expected Some Off but got something else"
 
 
   [<Fact>]
