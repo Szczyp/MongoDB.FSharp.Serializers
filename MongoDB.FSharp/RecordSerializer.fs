@@ -53,3 +53,8 @@ type RecordSerializer(classMap : BsonClassMap) =
 
     member this.SetDocumentId(document : Object, id : Object) =
       classMapSerializer.SetDocumentId(document, id)
+
+
+  interface IBsonDocumentSerializer with
+    member this.GetMemberSerializationInfo name =
+      classMapSerializer.GetMemberSerializationInfo(name)

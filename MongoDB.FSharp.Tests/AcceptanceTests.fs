@@ -178,6 +178,18 @@ type ``When serializing lists``() =
 
 
   [<Fact>]
+  member this.``It can deserialize linq first of records``() =
+    let collection = db.GetCollection<RecordType> "objects"
+    collection.Save({ Id = BsonObjectId.GenerateNewId(); Name = "test"; Int = 1 }) |> ignore
+    collection.Save({ Id = BsonObjectId.GenerateNewId(); Name = "test2"; Int = 2 }) |> ignore
+
+    let collection = db.GetCollection<RecordType>("objects")
+    let fromDb = collection.AsQueryable().First(fun (r : RecordType) -> r.Name = "test2")
+    Assert.NotNull(fromDb)
+    Assert.Equal<string>("test2", fromDb.Name)
+
+
+  [<Fact>]
   member this.``It can serialize option types``() =
     let collection = db.GetCollection<ObjectWithOptions> "objects"
     let obj = ObjectWithOptions()
