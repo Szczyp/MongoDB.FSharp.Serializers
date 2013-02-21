@@ -1,4 +1,4 @@
-﻿namespace MongoDB.FSharp
+﻿namespace MongoDB.FSharp.Serializers
 
 open System
 open Microsoft.FSharp.Reflection

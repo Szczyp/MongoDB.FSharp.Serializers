@@ -8,7 +8,7 @@ open MongoDB.Bson.IO
 open MongoDB.Bson.Serialization
 open MongoDB.Driver
 open MongoDB.Driver.Linq
-open MongoDB.FSharp
+open MongoDB.FSharp.Serializers
 open System.Linq
 
 open TestUtils
@@ -71,7 +71,7 @@ type ObjectWithDimmers() =
   member val Bedroom2 : DimmerSwitch = Off with get, set
 
 type ``When serializing lists``() = 
-  let db = MongoDatabase.Create "mongodb://localhost/test"
+  let db = MongoClient("mongodb://localhost").GetServer().GetDatabase ("test")
   do FSharpSerializers.Register()
 
   interface System.IDisposable with
